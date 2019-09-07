@@ -49,7 +49,7 @@ class Plane(object):
         ac = {k: v for k, v in ac.items() if v is not None}
         self.__dict__.update(ac)
         #self.apply_k_filter()
-        self.reported_track.append((self.lat, self.long))
+        self.reported_track.append((float(self.lat), float(self.long)))
         self.lat = np.mean([coord[0] for coord in self.reported_track])
         self.long = np.mean([coord[1] for coord in self.reported_track])
         self.track.append((self.lat, self.long))
@@ -61,7 +61,14 @@ class Plane(object):
 
     @staticmethod
     def extract_data(ac: Dict) -> Dict:
-        keys = ("lat", "long", "from", "to", "type", "alt", "mdl", "op")
+        keys = ("lat", "lon", "from", "to", "type", "alt", "mdl", "op")
         data = {k: ac.get(k) for k in keys}
         #data["kLat"], data["kLong"] = ac.get("Lat"), ac.get("Long")
+
+        if "lon" in ac.keys():
+            data["long"] = ac.get("lon")
+
+        if "long" in ac.keys():
+            data["long"] = ac.get("long")
+
         return data

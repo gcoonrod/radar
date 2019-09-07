@@ -1,12 +1,20 @@
 import requests
 import json
 import time
+import os
+import traceback
 from datetime import datetime
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any, Union
 import sys
 from plane import Plane
+from dotenv import load_dotenv
+try:
+    load_dotenv()
+except Exception as ex:
+    print("Error loading .env file: ", ex)
 
+API_KEY: str = os.getenv("API_KEY")
 
 try:
     import unicornhathd as u
@@ -89,7 +97,7 @@ def track(fixed_points: List[Tuple[float, float]],
     lat, long = x_low + (x_high - x_low) / 2, y_low + (y_high - y_low) / 2
     print("getting data...")
     print(lat, long, r)
-    url = "https://public-api.adsbexchange.com/VirtualRadar/AircraftList.json?lat={}&lng={}&fDstL=0&fDstU={}".format(
+    url = "https://adsbexchange.com/api/aircraft/json/lat/{}/lon/{}/dist/{}".format(
         lat, long, r)
     current_ac = {}
 
@@ -102,14 +110,24 @@ def track(fixed_points: List[Tuple[float, float]],
 
     while True:
         try:
-            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-            assert r.ok
-            data = json.loads(r.text)
+            headers = {
+                "api-auth": API_KEY,
+                "Accept-Encoding": "deflate"
+            }
+            req = requests.Request('GET', url=url, headers=headers)
+            prepared_req = req.prepare()
+            pretty_print_GET(prepared_req)
+            session = requests.Session()
+            response = session.send(prepared_req)
+            assert response.ok
+            data = json.loads(response.text)
+            #print(json.dumps(data, indent=4, sort_keys=True))
             aclist = [{k.lower(): v
                       for k, v in ac.items()}
-                      for ac in data["acList"]]
-        except:
+                      for ac in data["ac"]]
+        except Exception:
             print("{}: connection error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
+            traceback.print_exc()
             time.sleep(2)
             continue
 
@@ -160,6 +178,21 @@ def get_config_data():
         sys.exit(1)
     return fixed, x_low, x_high, y_low, y_high, r
 
+def pretty_print_GET(req):
+    """
+    At this point it is completely built and ready
+    to be fired; it is "prepared".
+
+    However pay attention at the formatting used in
+    this function because it is programmed to be pretty
+    printed and may differ from the actual request.
+    """
+    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
+        '-----------START-----------',
+        req.method + ' ' + req.url,
+        '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
+        req.body,
+    ))
 
 if __name__ == '__main__':
     fixed, x_low, x_high, y_low, y_high, r = get_config_data()
