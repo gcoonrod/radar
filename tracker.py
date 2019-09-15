@@ -9,18 +9,25 @@ from typing import Dict, List, Tuple, Any, Union
 import sys
 from plane import Plane
 from dotenv import load_dotenv
+
+
+def debug_print(message):
+    if DEBUG:
+        print(message)
+
+
 try:
     load_dotenv()
 except Exception as ex:
     print("Error loading .env file: ", ex)
 
-API_KEY: str = os.getenv("API_KEY")
+API_KEY = os.getenv("API_KEY")
+DEBUG = True if os.getenv("DEBUG") == "1" else False
 
 try:
     import unicornhathd as u
-
 except ModuleNotFoundError:
-    print("No unicorn hat found. Printing to console only.")
+    debug_print("No unicorn hat found. Printing to console only.")
     u = 0
 
 
@@ -53,8 +60,8 @@ def make_grid(planes: Dict[str, Plane],
         alt = int(plane.alt) if plane.alt is not None else 100
         for x, y in reversed(plane.track):
             if (x_low < x < x_high
-                and y_low < y < y_high
-                and alt > 50):
+                    and y_low < y < y_high
+                    and alt > 50):
                 x = int(((x - x_low) / (x_high - x_low)) * -16. + 16)
                 y = int(((y - y_low) / (y_high - y_low)) * 16.)
                 # get current brightness of pixel to avoid overwriting
@@ -72,14 +79,15 @@ def purge(planes: Dict[str, Plane]) -> Dict[str, Plane]:
 
 def display_to_console(current_ac: Dict[str, Plane]) -> None:
     # current_ac is a dict in form {registration: Plane()}
-    for p in [p for p in current_ac.values() if p.type != "static"]:
-        print("From:", p.frm)
-        print("To:", p.to)
-        print("Type:", p.mdl) #p.Type)
-        print("Operator:", p.op)
-        print("Altitude:", p.alt)
-        print("Last Info:", round(time.time() - p.last_seen, 2), "seconds ago")
-        print()
+    if DEBUG:
+        for p in [p for p in current_ac.values() if p.type != "static"]:
+            print("From:", p.frm)
+            print("To:", p.to)
+            print("Type:", p.mdl)  # p.Type)
+            print("Operator:", p.op)
+            print("Altitude:", p.alt)
+            print("Last Info:", round(time.time() - p.last_seen, 2), "seconds ago")
+            print()
 
 
 def track(fixed_points: List[Tuple[float, float]],
@@ -95,8 +103,10 @@ def track(fixed_points: List[Tuple[float, float]],
     :return: None
     """
     lat, long = x_low + (x_high - x_low) / 2, y_low + (y_high - y_low) / 2
-    print("getting data...")
-    print(lat, long, r)
+    if DEBUG:
+        print("getting data...")
+        print(lat, long, r)
+
     url = "https://adsbexchange.com/api/aircraft/json/lat/{}/lon/{}/dist/{}".format(
         lat, long, r)
     current_ac = {}
@@ -104,9 +114,9 @@ def track(fixed_points: List[Tuple[float, float]],
     # add fixed point(s)
     for i, (x, y) in enumerate(fixed_points):
         current_ac["fixed" + str(i)] = Plane("fixed" + str(i),
-                                            {"lat": x, "long": y,
-                                             "kLat": x, "kLong": y, # for k_filter
-                                             "alt": 0, "type": "static"})
+                                             {"lat": x, "long": y,
+                                              "kLat": x, "kLong": y,  # for k_filter
+                                              "alt": 0, "type": "static"})
 
     while True:
         try:
@@ -121,12 +131,13 @@ def track(fixed_points: List[Tuple[float, float]],
             response = session.send(prepared_req)
             assert response.ok
             data = json.loads(response.text)
-            #print(json.dumps(data, indent=4, sort_keys=True))
+            debug_print(json.dumps(data, indent=4, sort_keys=True))
+
             aclist = [{k.lower(): v
-                      for k, v in ac.items()}
-                      for ac in data["ac"]]
+                       for k, v in ac.items()}
+                      for ac in data.get("ac", [])]
         except Exception:
-            print("{}: connection error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
+            debug_print("{}: connection error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
             traceback.print_exc()
             time.sleep(2)
             continue
@@ -134,7 +145,7 @@ def track(fixed_points: List[Tuple[float, float]],
         for ac in aclist:
             reg = ac.get("reg")
             core_data = Plane.extract_data(ac)
-            print(core_data)
+            debug_print(core_data)
             if reg:
                 plane = current_ac.get(reg)
                 if plane:
@@ -166,7 +177,7 @@ def get_config_data():
             fixed = list(filter(lambda x: type(x[0]) == float and type(x[1]) == float, map_data["fixed_points"]))
             fixed = [tuple(coord) for coord in fixed]
     except FileNotFoundError:
-        print("Please configure location and map data in a config.json.")
+        debug_print("Please configure location and map data in a config.json.")
         sys.exit(1)
 
     x_low, y_low = map_data["bottom_left"]
@@ -174,9 +185,10 @@ def get_config_data():
 
     # check data is valid
     if not (x_low < x_high and y_low < y_high):
-        print("invalid coordinates.")
+        debug_print("invalid coordinates.")
         sys.exit(1)
     return fixed, x_low, x_high, y_low, y_high, r
+
 
 def pretty_print_GET(req):
     """
@@ -187,12 +199,13 @@ def pretty_print_GET(req):
     this function because it is programmed to be pretty
     printed and may differ from the actual request.
     """
-    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
+    debug_print('{}\n{}\r\n{}\r\n\r\n{}'.format(
         '-----------START-----------',
         req.method + ' ' + req.url,
         '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
         req.body,
     ))
+
 
 if __name__ == '__main__':
     fixed, x_low, x_high, y_low, y_high, r = get_config_data()
