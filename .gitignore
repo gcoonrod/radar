@@ -1,3 +1,7 @@
 .idea
 .env
 log.txt
+config.json
+
+__pycache__/
+*.py[cod]

@@ -12,6 +12,9 @@ class Plane(object):
         # replace "from" key with "frm"
         attr = {(k if not k == "from" else "frm"): v
                 for k, v in attr.items()}
+        self.mil = "0"
+        self.icao = "N/A"
+        self.opicao = "N/A"
         self.__dict__.update(attr)
         self.last_seen = time.time()
         self.set_colour()
@@ -23,7 +26,9 @@ class Plane(object):
         if not self.type:
             self.colour = (.15, .3)
             return
-        if self.type.startswith("A38"):
+        if self.type == "static" or self.mil == "1":
+            self.colour = (.01, .99)
+        elif self.type.startswith("A38"):
             self.colour = (0., .99)
         elif self.type.startswith("B74"):
             self.colour = (.933, .974)
@@ -39,8 +44,6 @@ class Plane(object):
             self.colour = (.495, .198)
         elif self.type.startswith("A34"):
             self.colour = (.35, .96)
-        elif self.type == "static":
-            self.colour = (.01, .99)
         #elif self.Type == "":
         else:
             self.colour = (.15, .3)
@@ -61,7 +64,7 @@ class Plane(object):
 
     @staticmethod
     def extract_data(ac: Dict) -> Dict:
-        keys = ("lat", "lon", "from", "to", "type", "alt", "mdl", "op")
+        keys = ("lat", "lon", "from", "to", "type", "alt", "mdl", "op", "mil", "icao", "opicao")
         data = {k: ac.get(k) for k in keys}
         #data["kLat"], data["kLong"] = ac.get("Lat"), ac.get("Long")
 

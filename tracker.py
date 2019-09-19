@@ -25,6 +25,7 @@ except Exception as ex:
 
 API_KEY = os.getenv("API_KEY")
 DEBUG = True if os.getenv("DEBUG") == "1" else False
+in_test = False
 
 try:
     import unicornhathd as u
@@ -85,6 +86,8 @@ def display_to_console(current_ac: Dict[str, Plane]) -> None:
     # current_ac is a dict in form {registration: Plane()}
     if DEBUG:
         for p in [p for p in current_ac.values() if p.type != "static"]:
+            print("ICAO:", p.icao or "N/A")
+            print("Operation ICAO:", p.opicao or "N/A")
             print("From:", p.frm)
             print("To:", p.to)
             print("Type:", p.mdl)  # p.Type)
@@ -152,8 +155,11 @@ def track(fixed_points: List[Tuple[float, float]],
             print("{}: error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
             print(e)
             traceback.print_exc()
-            time.sleep(2)
-            continue
+            if not in_test:
+                time.sleep(2)
+                continue
+            else:
+                break
 
         for ac in aclist:
             reg = ac.get("reg")
@@ -172,7 +178,10 @@ def track(fixed_points: List[Tuple[float, float]],
         grid = make_grid(current_ac, lat_min, lat_max, long_min, long_max)
         plot(grid)
         log(current_ac)
-        time.sleep(2)
+        if not in_test:
+            time.sleep(5)
+        else:
+            break
 
 
 def get_config_data():
