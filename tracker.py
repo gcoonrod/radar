@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import requests
 import json
 import time
@@ -57,6 +59,8 @@ def make_grid(planes: Dict[str, Plane],
             y = int(((plane.long - y_low) / (y_high - y_low)) * 16.)
             grid[x, y] = (h, s, .1)
         b = 1.
+        if plane.alt is '':
+            plane.alt = None
         alt = int(plane.alt) if plane.alt is not None else 100
         for x, y in reversed(plane.track):
             if (x_low < x < x_high
@@ -126,18 +130,27 @@ def track(fixed_points: List[Tuple[float, float]],
             }
             req = requests.Request('GET', url=url, headers=headers)
             prepared_req = req.prepare()
-            pretty_print_GET(prepared_req)
+            # pretty_print_GET(prepared_req)
             session = requests.Session()
             response = session.send(prepared_req)
             assert response.ok
             data = json.loads(response.text)
             debug_print(json.dumps(data, indent=4, sort_keys=True))
 
-            aclist = [{k.lower(): v
-                       for k, v in ac.items()}
-                      for ac in data.get("ac", [])]
-        except Exception:
-            debug_print("{}: connection error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
+            if "ac" in data:
+                if data.get("ac") is None:
+                    print("No data from search.")
+                    time.sleep(2)
+                    continue
+
+                aclist = [{k.lower(): v
+                           for k, v in ac.items()}
+                          for ac in data.get("ac", {})]
+            else:
+                aclist = []
+        except Exception as e:
+            print("{}: error.".format(datetime.strftime(datetime.now(), "%H:%M:%S")))
+            print(e)
             traceback.print_exc()
             time.sleep(2)
             continue
@@ -145,7 +158,7 @@ def track(fixed_points: List[Tuple[float, float]],
         for ac in aclist:
             reg = ac.get("reg")
             core_data = Plane.extract_data(ac)
-            debug_print(core_data)
+            # debug_print(core_data)
             if reg:
                 plane = current_ac.get(reg)
                 if plane:
