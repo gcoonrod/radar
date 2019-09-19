@@ -1,6 +1,8 @@
 # radar
 Display flight tracks on the UnicornHatHD module for Raspberry Pi.
 
+![](SmartSelect_20190110-110709_Video%20Player.gif)
+
 This will run without the UnicornHatHD module, but will simply print information to the console.
 
 ## Prerequisites 
