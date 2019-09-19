@@ -1,23 +1,20 @@
 #! /usr/bin/env python3
 
-import requests
 import json
-import time
 import os
+import sys
+import time
 import traceback
 from datetime import datetime
+from typing import Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, List, Tuple, Any, Union
-import sys
-from plane import Plane
+import requests
 from dotenv import load_dotenv
 
+from plane import Plane
 
-def debug_print(message):
-    if DEBUG:
-        print(message)
-
-
+# Load environment variables
 try:
     load_dotenv()
 except Exception as ex:
@@ -25,15 +22,18 @@ except Exception as ex:
 
 API_KEY = os.getenv("API_KEY")
 DEBUG = True if os.getenv("DEBUG") == "1" else False
+LOG_ENABLE = True if os.getenv("LOG_ENABLE") == "1" else False
 in_test = False
 
+# Load UnicornhatHD if present
 try:
     import unicornhathd as u
 except ModuleNotFoundError:
-    debug_print("No unicorn hat found. Printing to console only.")
+    print("No unicorn hat found. Printing to console only.")
     u = 0
 
 
+# Update the UnicornhatHD Display
 def plot(grid: np.ndarray):
     if not u:
         return
@@ -43,13 +43,16 @@ def plot(grid: np.ndarray):
     u.show()
 
 
+# Write plane info to log file if enabled.
 def log(planes: Dict[str, Plane]):
-    t = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
-    data = [" ".join((str(p.lat), str(p.long), str(p.colour))) for p in planes.values()]
-    with open("log.txt", "a") as f:
-        f.write(t + " - " + " - ".join(data) + "\n")
+    if LOG_ENABLE:
+        t = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+        data = [" ".join((str(p.lat), str(p.long), str(p.colour))) for p in planes.values()]
+        with open("log.txt", "a") as f:
+            f.write(t + " - " + " - ".join(data) + "\n")
 
 
+# Build grid for UnicornhatHD
 def make_grid(planes: Dict[str, Plane],
               x_low, x_high, y_low, y_high) -> np.ndarray:
     grid = np.zeros((16, 16, 3), dtype=np.float32)
@@ -76,18 +79,20 @@ def make_grid(planes: Dict[str, Plane],
     return grid
 
 
+# Remove planes from tracked list after 45 seconds.
 def purge(planes: Dict[str, Plane]) -> Dict[str, Plane]:
     return {reg: plane for reg, plane in planes.items()
             if (time.time() - plane.last_seen < 45.
                 or plane.type == "static")}
 
 
+# Write found planes to console.
 def display_to_console(current_ac: Dict[str, Plane]) -> None:
     # current_ac is a dict in form {registration: Plane()}
     if DEBUG:
         for p in [p for p in current_ac.values() if p.type != "static"]:
             print("ICAO:", p.icao or "N/A")
-            print("Operation ICAO:", p.opicao or "N/A")
+            print("Operator ICAO:", p.opicao or "N/A")
             print("From:", p.frm)
             print("To:", p.to)
             print("Type:", p.mdl)  # p.Type)
@@ -97,6 +102,7 @@ def display_to_console(current_ac: Dict[str, Plane]) -> None:
             print()
 
 
+# Main method for invoking the ADSBExchange API and parsing the data.
 def track(fixed_points: List[Tuple[float, float]],
           lat_min: float, lat_max: float, long_min: float, long_max: float,
           r: float = 25.):
@@ -133,12 +139,14 @@ def track(fixed_points: List[Tuple[float, float]],
             }
             req = requests.Request('GET', url=url, headers=headers)
             prepared_req = req.prepare()
-            # pretty_print_GET(prepared_req)
+            if DEBUG:
+                pretty_print_get(prepared_req)
             session = requests.Session()
             response = session.send(prepared_req)
             assert response.ok
             data = json.loads(response.text)
-            debug_print(json.dumps(data, indent=4, sort_keys=True))
+            if DEBUG:
+                print(json.dumps(data, indent=4, sort_keys=True))
 
             if "ac" in data:
                 if data.get("ac") is None:
@@ -161,10 +169,13 @@ def track(fixed_points: List[Tuple[float, float]],
             else:
                 break
 
+        if DEBUG:
+            print("Core Data:")
         for ac in aclist:
             reg = ac.get("reg")
             core_data = Plane.extract_data(ac)
-            # debug_print(core_data)
+            if DEBUG:
+                print(core_data)
             if reg:
                 plane = current_ac.get(reg)
                 if plane:
@@ -184,6 +195,7 @@ def track(fixed_points: List[Tuple[float, float]],
             break
 
 
+# Load config data from file.
 def get_config_data():
     # load config file - should be config.json in project root
     try:
@@ -199,7 +211,7 @@ def get_config_data():
             fixed = list(filter(lambda x: type(x[0]) == float and type(x[1]) == float, map_data["fixed_points"]))
             fixed = [tuple(coord) for coord in fixed]
     except FileNotFoundError:
-        debug_print("Please configure location and map data in a config.json.")
+        print("Please configure location and map data in a config.json.")
         sys.exit(1)
 
     x_low, y_low = map_data["bottom_left"]
@@ -207,21 +219,14 @@ def get_config_data():
 
     # check data is valid
     if not (x_low < x_high and y_low < y_high):
-        debug_print("invalid coordinates.")
+        print("invalid coordinates.")
         sys.exit(1)
     return fixed, x_low, x_high, y_low, y_high, r
 
 
-def pretty_print_GET(req):
-    """
-    At this point it is completely built and ready
-    to be fired; it is "prepared".
-
-    However pay attention at the formatting used in
-    this function because it is programmed to be pretty
-    printed and may differ from the actual request.
-    """
-    debug_print('{}\n{}\r\n{}\r\n\r\n{}'.format(
+# Debugging method to print raw GET requests.
+def pretty_print_get(req):
+    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
         '-----------START-----------',
         req.method + ' ' + req.url,
         '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
@@ -229,6 +234,7 @@ def pretty_print_GET(req):
     ))
 
 
+# Main
 if __name__ == '__main__':
     fixed, x_low, x_high, y_low, y_high, r = get_config_data()
     track(fixed, x_low, x_high, y_low, y_high, r)
