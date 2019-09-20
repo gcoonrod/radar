@@ -1,7 +1,8 @@
-from unittest import TestCase
-from plane import Plane
-import os
 import json
+import os
+from unittest import TestCase
+
+from plane import Plane
 
 CWD = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(CWD, 'data.json')
@@ -18,17 +19,9 @@ class TestPlane(TestCase):
         plane_data = self.aclist[0]
         test_plane = Plane(reg=plane_data['reg'], attr=plane_data)
         self.assertIsNotNone(test_plane.colour)
-        self.assertEqual(test_plane.colour, (.37, .89), "Plane color is not equal.")
+        self.assertEqual(test_plane.colour, (.369, .89), "Plane color is not equal.")
 
-        # Create a Military plane
-        test_plane.mil = "1"
-        test_plane.set_colour()
-        self.assertEqual(test_plane.colour, (.01, .99), "Plane color is not equal.")
         pass
-
-        # def test_update_fields(self):
-        #     self.fail()
-        #
 
     def test_extract_data(self):
         raw_plane_data = self.aclist[1]
