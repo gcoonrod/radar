@@ -149,7 +149,10 @@ class Tracker:
                     self.pretty_print_get(prepared_req)
                 session = requests.Session()
                 response = session.send(prepared_req)
-                assert response.ok
+                if not response.ok:
+                    print("!response.ok: ", response)
+                    time.sleep(5)
+                    continue
                 data = json.loads(response.text)
                 if self.DEBUG:
                     print(json.dumps(data, indent=4, sort_keys=True))
